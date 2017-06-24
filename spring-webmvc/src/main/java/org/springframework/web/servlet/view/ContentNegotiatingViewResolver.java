@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.AnnotationAwareOrderComparator;
 import org.springframework.http.MediaType;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
@@ -175,9 +176,9 @@ public class ContentNegotiatingViewResolver extends WebApplicationObjectSupport
 	@Override
 	protected void initServletContext(ServletContext servletContext) {
 		Collection<ViewResolver> matchingBeans =
-				BeanFactoryUtils.beansOfTypeIncludingAncestors(getApplicationContext(), ViewResolver.class).values();
+				BeanFactoryUtils.beansOfTypeIncludingAncestors(obtainApplicationContext(), ViewResolver.class).values();
 		if (this.viewResolvers == null) {
-			this.viewResolvers = new ArrayList<ViewResolver>(matchingBeans.size());
+			this.viewResolvers = new ArrayList<>(matchingBeans.size());
 			for (ViewResolver viewResolver : matchingBeans) {
 				if (this != viewResolver) {
 					this.viewResolvers.add(viewResolver);
@@ -185,12 +186,13 @@ public class ContentNegotiatingViewResolver extends WebApplicationObjectSupport
 			}
 		}
 		else {
-			for (int i = 0; i < viewResolvers.size(); i++) {
-				if (matchingBeans.contains(viewResolvers.get(i))) {
+			for (int i = 0; i < this.viewResolvers.size(); i++) {
+				ViewResolver vr = this.viewResolvers.get(i);
+				if (matchingBeans.contains(vr)) {
 					continue;
 				}
-				String name = viewResolvers.get(i).getClass().getName() + i;
-				getApplicationContext().getAutowireCapableBeanFactory().initializeBean(viewResolvers.get(i), name);
+				String name = vr.getClass().getName() + i;
+				obtainApplicationContext().getAutowireCapableBeanFactory().initializeBean(vr, name);
 			}
 
 		}
@@ -205,8 +207,7 @@ public class ContentNegotiatingViewResolver extends WebApplicationObjectSupport
 	@Override
 	public void afterPropertiesSet() {
 		if (this.contentNegotiationManager == null) {
-			this.cnmFactoryBean.afterPropertiesSet();
-			this.contentNegotiationManager = this.cnmFactoryBean.getObject();
+			this.contentNegotiationManager = this.cnmFactoryBean.build();
 		}
 	}
 
@@ -214,7 +215,7 @@ public class ContentNegotiatingViewResolver extends WebApplicationObjectSupport
 	@Override
 	public View resolveViewName(String viewName, Locale locale) throws Exception {
 		RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
-		Assert.isInstanceOf(ServletRequestAttributes.class, attrs);
+		Assert.state(attrs instanceof ServletRequestAttributes, "No current ServletRequestAttributes");
 		List<MediaType> requestedMediaTypes = getMediaTypes(((ServletRequestAttributes) attrs).getRequest());
 		if (requestedMediaTypes != null) {
 			List<View> candidateViews = getCandidateViews(viewName, locale, requestedMediaTypes);
@@ -240,6 +241,7 @@ public class ContentNegotiatingViewResolver extends WebApplicationObjectSupport
 	 * @param request the current servlet request
 	 * @return the list of media types requested, if any
 	 */
+	@Nullable
 	protected List<MediaType> getMediaTypes(HttpServletRequest request) {
 		try {
 			ServletWebRequest webRequest = new ServletWebRequest(request);
@@ -249,7 +251,7 @@ public class ContentNegotiatingViewResolver extends WebApplicationObjectSupport
 					Collections.singletonList(MediaType.ALL));
 
 			List<MediaType> producibleMediaTypes = getProducibleMediaTypes(request);
-			Set<MediaType> compatibleMediaTypes = new LinkedHashSet<MediaType>();
+			Set<MediaType> compatibleMediaTypes = new LinkedHashSet<>();
 			for (MediaType acceptable : acceptableMediaTypes) {
 				for (MediaType producible : producibleMediaTypes) {
 					if (acceptable.isCompatibleWith(producible)) {
@@ -257,7 +259,7 @@ public class ContentNegotiatingViewResolver extends WebApplicationObjectSupport
 					}
 				}
 			}
-			List<MediaType> selectedMediaTypes = new ArrayList<MediaType>(compatibleMediaTypes);
+			List<MediaType> selectedMediaTypes = new ArrayList<>(compatibleMediaTypes);
 			MediaType.sortBySpecificityAndQuality(selectedMediaTypes);
 			if (logger.isDebugEnabled()) {
 				logger.debug("Requested media types are " + selectedMediaTypes + " based on Accept header types " +
@@ -275,7 +277,7 @@ public class ContentNegotiatingViewResolver extends WebApplicationObjectSupport
 		Set<MediaType> mediaTypes = (Set<MediaType>)
 				request.getAttribute(HandlerMapping.PRODUCIBLE_MEDIA_TYPES_ATTRIBUTE);
 		if (!CollectionUtils.isEmpty(mediaTypes)) {
-			return new ArrayList<MediaType>(mediaTypes);
+			return new ArrayList<>(mediaTypes);
 		}
 		else {
 			return Collections.singletonList(MediaType.ALL);
@@ -294,7 +296,7 @@ public class ContentNegotiatingViewResolver extends WebApplicationObjectSupport
 	private List<View> getCandidateViews(String viewName, Locale locale, List<MediaType> requestedMediaTypes)
 			throws Exception {
 
-		List<View> candidateViews = new ArrayList<View>();
+		List<View> candidateViews = new ArrayList<>();
 		for (ViewResolver viewResolver : this.viewResolvers) {
 			View view = viewResolver.resolveViewName(viewName, locale);
 			if (view != null) {
@@ -303,7 +305,7 @@ public class ContentNegotiatingViewResolver extends WebApplicationObjectSupport
 			for (MediaType requestedMediaType : requestedMediaTypes) {
 				List<String> extensions = this.contentNegotiationManager.resolveFileExtensions(requestedMediaType);
 				for (String extension : extensions) {
-					String viewNameWithExtension = viewName + "." + extension;
+					String viewNameWithExtension = viewName + '.' + extension;
 					view = viewResolver.resolveViewName(viewNameWithExtension, locale);
 					if (view != null) {
 						candidateViews.add(view);
@@ -317,6 +319,7 @@ public class ContentNegotiatingViewResolver extends WebApplicationObjectSupport
 		return candidateViews;
 	}
 
+	@Nullable
 	private View getBestView(List<View> candidateViews, List<MediaType> requestedMediaTypes, RequestAttributes attrs) {
 		for (View candidateView : candidateViews) {
 			if (candidateView instanceof SmartView) {
@@ -356,7 +359,7 @@ public class ContentNegotiatingViewResolver extends WebApplicationObjectSupport
 		}
 
 		@Override
-		public void render(Map<String, ?> model, HttpServletRequest request, HttpServletResponse response) {
+		public void render(@Nullable Map<String, ?> model, HttpServletRequest request, HttpServletResponse response) {
 			response.setStatus(HttpServletResponse.SC_NOT_ACCEPTABLE);
 		}
 	};

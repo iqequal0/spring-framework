@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import org.springframework.expression.PropertyAccessor;
 import org.springframework.expression.TypeComparator;
 import org.springframework.expression.TypeConverter;
 import org.springframework.expression.TypedValue;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 /**
@@ -92,12 +93,12 @@ public class ExpressionState {
 
 	private void ensureVariableScopesInitialized() {
 		if (this.variableScopes == null) {
-			this.variableScopes = new Stack<VariableScope>();
+			this.variableScopes = new Stack<>();
 			// top level empty variable scope
 			this.variableScopes.add(new VariableScope());
 		}
 		if (this.scopeRootObjects == null) {
-			this.scopeRootObjects = new Stack<TypedValue>();
+			this.scopeRootObjects = new Stack<>();
 		}
 	}
 
@@ -113,14 +114,14 @@ public class ExpressionState {
 
 	public void pushActiveContextObject(TypedValue obj) {
 		if (this.contextObjects == null) {
-			this.contextObjects = new Stack<TypedValue>();
+			this.contextObjects = new Stack<>();
 		}
 		this.contextObjects.push(obj);
 	}
 
 	public void popActiveContextObject() {
 		if (this.contextObjects == null) {
-			this.contextObjects = new Stack<TypedValue>();
+			this.contextObjects = new Stack<>();
 		}
 		this.contextObjects.pop();
 	}
@@ -136,18 +137,13 @@ public class ExpressionState {
 		return this.scopeRootObjects.peek();
 	}
 
-	public void setVariable(String name, Object value) {
+	public void setVariable(String name, @Nullable Object value) {
 		this.relatedContext.setVariable(name, value);
 	}
 
 	public TypedValue lookupVariable(String name) {
 		Object value = this.relatedContext.lookupVariable(name);
-		if (value == null) {
-			return TypedValue.NULL;
-		}
-		else {
-			return new TypedValue(value);
-		}
+		return (value != null ? new TypedValue(value) : TypedValue.NULL);
 	}
 
 	public TypeComparator getTypeComparator() {
@@ -159,14 +155,19 @@ public class ExpressionState {
 	}
 
 	public Object convertValue(Object value, TypeDescriptor targetTypeDescriptor) throws EvaluationException {
-		return this.relatedContext.getTypeConverter().convertValue(value,
+		Object result = this.relatedContext.getTypeConverter().convertValue(value,
 				TypeDescriptor.forObject(value), targetTypeDescriptor);
+		if (result == null) {
+			throw new IllegalStateException("Null conversion result for value [" + value + "]");
+		}
+		return result;
 	}
 
 	public TypeConverter getTypeConverter() {
 		return this.relatedContext.getTypeConverter();
 	}
 
+	@Nullable
 	public Object convertValue(TypedValue value, TypeDescriptor targetTypeDescriptor) throws EvaluationException {
 		Object val = value.getValue();
 		return this.relatedContext.getTypeConverter().convertValue(val, TypeDescriptor.forObject(val), targetTypeDescriptor);
@@ -183,7 +184,7 @@ public class ExpressionState {
 
 	public void enterScope() {
 		ensureVariableScopesInitialized();
-		this.variableScopes.push(new VariableScope(Collections.<String,Object>emptyMap()));
+		this.variableScopes.push(new VariableScope(Collections.emptyMap()));
 		this.scopeRootObjects.push(getActiveContextObject());
 	}
 
@@ -204,6 +205,7 @@ public class ExpressionState {
 		this.variableScopes.peek().setVariable(name, value);
 	}
 
+	@Nullable
 	public Object lookupLocalVariable(String name) {
 		ensureVariableScopesInitialized();
 		int scopeNumber = this.variableScopes.size() - 1;
@@ -215,7 +217,7 @@ public class ExpressionState {
 		return null;
 	}
 
-	public TypedValue operate(Operation op, Object left, Object right) throws EvaluationException {
+	public TypedValue operate(Operation op, @Nullable Object left, @Nullable Object right) throws EvaluationException {
 		OperatorOverloader overloader = this.relatedContext.getOperatorOverloader();
 		if (overloader.overridesOperation(op, left, right)) {
 			Object returnValue = overloader.operate(op, left, right);
@@ -250,12 +252,12 @@ public class ExpressionState {
 	 */
 	private static class VariableScope {
 
-		private final Map<String, Object> vars = new HashMap<String, Object>();
+		private final Map<String, Object> vars = new HashMap<>();
 
 		public VariableScope() {
 		}
 
-		public VariableScope(Map<String, Object> arguments) {
+		public VariableScope(@Nullable Map<String, Object> arguments) {
 			if (arguments != null) {
 				this.vars.putAll(arguments);
 			}

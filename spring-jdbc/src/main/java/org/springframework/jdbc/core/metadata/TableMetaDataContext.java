@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ import org.springframework.jdbc.core.SqlTypeValue;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.jdbc.core.namedparam.SqlParameterSourceUtils;
 import org.springframework.jdbc.support.JdbcUtils;
-import org.springframework.jdbc.support.nativejdbc.NativeJdbcExtractor;
+import org.springframework.lang.Nullable;
 
 /**
  * Class to manage context metadata used for the configuration
@@ -47,17 +47,17 @@ public class TableMetaDataContext {
 	/** Logger available to subclasses */
 	protected final Log logger = LogFactory.getLog(getClass());
 
-	/** name of procedure to call **/
+	/** name of table for this context **/
 	private String tableName;
 
-	/** name of catalog for call **/
+	/** name of catalog for this context **/
 	private String catalogName;
 
-	/** name of schema for call **/
+	/** name of schema for this context **/
 	private String schemaName;
 
 	/** List of columns objects to be used in this context */
-	private List<String> tableColumns = new ArrayList<String>();
+	private List<String> tableColumns = new ArrayList<>();
 
 	/** should we access insert parameter meta data info or not */
 	private boolean accessTableColumnMetaData = true;
@@ -71,9 +71,6 @@ public class TableMetaDataContext {
 	/** are we using generated key columns */
 	private boolean generatedKeyColumnsUsed = false;
 
-	/** NativeJdbcExtractor to be used to retrieve the native connection */
-	NativeJdbcExtractor nativeJdbcExtractor;
-
 
 	/**
 	 * Set the name of the table for this context.
@@ -85,6 +82,7 @@ public class TableMetaDataContext {
 	/**
 	 * Get the name of the table for this context.
 	 */
+	@Nullable
 	public String getTableName() {
 		return this.tableName;
 	}
@@ -99,6 +97,7 @@ public class TableMetaDataContext {
 	/**
 	 * Get the name of the catalog for this context.
 	 */
+	@Nullable
 	public String getCatalogName() {
 		return this.catalogName;
 	}
@@ -113,6 +112,7 @@ public class TableMetaDataContext {
 	/**
 	 * Get the name of the schema for this context.
 	 */
+	@Nullable
 	public String getSchemaName() {
 		return this.schemaName;
 	}
@@ -175,6 +175,7 @@ public class TableMetaDataContext {
 	 * when the JDBC 3.0 feature is not supported.
 	 * {@link java.sql.DatabaseMetaData#supportsGetGeneratedKeys()}?
 	 */
+	@Nullable
 	public String getSimulationQueryForGetGeneratedKey(String tableName, String keyColumnName) {
 		return this.metaDataProvider.getSimpleQueryForGetGeneratedKey(tableName, keyColumnName);
 	}
@@ -187,13 +188,6 @@ public class TableMetaDataContext {
 		return this.metaDataProvider.isGeneratedKeysColumnNameArraySupported();
 	}
 
-	/**
-	 * Set {@link NativeJdbcExtractor} to be used to retrieve the native connection.
-	 */
-	public void setNativeJdbcExtractor(NativeJdbcExtractor nativeJdbcExtractor) {
-		this.nativeJdbcExtractor = nativeJdbcExtractor;
-	}
-
 
 	/**
 	 * Process the current meta data with the provided configuration options.
@@ -202,8 +196,7 @@ public class TableMetaDataContext {
 	 * @param generatedKeyNames name of generated keys
 	 */
 	public void processMetaData(DataSource dataSource, List<String> declaredColumns, String[] generatedKeyNames) {
-		this.metaDataProvider =
-				TableMetaDataProviderFactory.createMetaDataProvider(dataSource, this, this.nativeJdbcExtractor);
+		this.metaDataProvider = TableMetaDataProviderFactory.createMetaDataProvider(dataSource, this);
 		this.tableColumns = reconcileColumnsToUse(declaredColumns, generatedKeyNames);
 	}
 
@@ -217,13 +210,13 @@ public class TableMetaDataContext {
 			this.generatedKeyColumnsUsed = true;
 		}
 		if (declaredColumns.size() > 0) {
-			return new ArrayList<String>(declaredColumns);
+			return new ArrayList<>(declaredColumns);
 		}
-		Set<String> keys = new LinkedHashSet<String>(generatedKeyNames.length);
+		Set<String> keys = new LinkedHashSet<>(generatedKeyNames.length);
 		for (String key : generatedKeyNames) {
 			keys.add(key.toUpperCase());
 		}
-		List<String> columns = new ArrayList<String>();
+		List<String> columns = new ArrayList<>();
 		for (TableParameterMetaData meta : metaDataProvider.getTableParameterMetaData()) {
 			if (!keys.contains(meta.getParameterName().toUpperCase())) {
 				columns.add(meta.getParameterName());
@@ -237,7 +230,7 @@ public class TableMetaDataContext {
 	 * @param parameterSource the parameter names and values
 	 */
 	public List<Object> matchInParameterValuesWithInsertColumns(SqlParameterSource parameterSource) {
-		List<Object> values = new ArrayList<Object>();
+		List<Object> values = new ArrayList<>();
 		// for parameter source lookups we need to provide caseinsensitive lookup support since the
 		// database metadata is not necessarily providing case sensitive column names
 		Map<String, String> caseInsensitiveParameterNames =
@@ -277,8 +270,8 @@ public class TableMetaDataContext {
 	 * @param inParameters the parameter names and values
 	 */
 	public List<Object> matchInParameterValuesWithInsertColumns(Map<String, ?> inParameters) {
-		List<Object> values = new ArrayList<Object>();
-		Map<String, Object> source = new LinkedHashMap<String, Object>(inParameters.size());
+		List<Object> values = new ArrayList<>();
+		Map<String, Object> source = new LinkedHashMap<>(inParameters.size());
 		for (String key : inParameters.keySet()) {
 			source.put(key.toLowerCase(), inParameters.get(key));
 		}
@@ -294,7 +287,7 @@ public class TableMetaDataContext {
 	 * @return the insert string to be used
 	 */
 	public String createInsertString(String... generatedKeyNames) {
-		Set<String> keys = new LinkedHashSet<String>(generatedKeyNames.length);
+		Set<String> keys = new LinkedHashSet<>(generatedKeyNames.length);
 		for (String key : generatedKeyNames) {
 			keys.add(key.toUpperCase());
 		}
@@ -345,7 +338,7 @@ public class TableMetaDataContext {
 		int[] types = new int[getTableColumns().size()];
 		List<TableParameterMetaData> parameters = this.metaDataProvider.getTableParameterMetaData();
 		Map<String, TableParameterMetaData> parameterMap =
-				new LinkedHashMap<String, TableParameterMetaData>(parameters.size());
+				new LinkedHashMap<>(parameters.size());
 		for (TableParameterMetaData tpmd : parameters) {
 			parameterMap.put(tpmd.getParameterName().toUpperCase(), tpmd);
 		}

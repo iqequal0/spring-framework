@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,9 @@ import java.util.Set;
 
 import org.springframework.http.MediaType;
 import org.springframework.http.server.ServerHttpResponse;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
+import org.springframework.util.ObjectUtils;
 
 /**
  * A controller method return value type for asynchronous request processing
@@ -62,7 +64,7 @@ public class ResponseBodyEmitter {
 
 	private final Long timeout;
 
-	private final Set<DataWithMediaType> earlySendAttempts = new LinkedHashSet<DataWithMediaType>(8);
+	private final Set<DataWithMediaType> earlySendAttempts = new LinkedHashSet<>(8);
 
 	private Handler handler;
 
@@ -97,6 +99,7 @@ public class ResponseBodyEmitter {
 	/**
 	 * Return the configured timeout value, if any.
 	 */
+	@Nullable
 	public Long getTimeout() {
 		return this.timeout;
 	}
@@ -154,29 +157,27 @@ public class ResponseBodyEmitter {
 	 * @throws IOException raised when an I/O error occurs
 	 * @throws java.lang.IllegalStateException wraps any other errors
 	 */
-	public synchronized void send(Object object, MediaType mediaType) throws IOException {
+	public synchronized void send(Object object, @Nullable MediaType mediaType) throws IOException {
 		Assert.state(!this.complete, "ResponseBodyEmitter is already set complete");
 		sendInternal(object, mediaType);
 	}
 
-	private void sendInternal(Object object, MediaType mediaType) throws IOException {
-		if (object != null) {
-			if (this.handler != null) {
-				try {
-					this.handler.send(object, mediaType);
-				}
-				catch (IOException ex) {
-					completeWithError(ex);
-					throw ex;
-				}
-				catch (Throwable ex) {
-					completeWithError(ex);
-					throw new IllegalStateException("Failed to send " + object, ex);
-				}
+	private void sendInternal(Object object, @Nullable MediaType mediaType) throws IOException {
+		if (this.handler != null) {
+			try {
+				this.handler.send(object, mediaType);
 			}
-			else {
-				this.earlySendAttempts.add(new DataWithMediaType(object, mediaType));
+			catch (IOException ex) {
+				completeWithError(ex);
+				throw ex;
 			}
+			catch (Throwable ex) {
+				completeWithError(ex);
+				throw new IllegalStateException("Failed to send " + object, ex);
+			}
+		}
+		else {
+			this.earlySendAttempts.add(new DataWithMediaType(object, mediaType));
 		}
 	}
 
@@ -224,12 +225,18 @@ public class ResponseBodyEmitter {
 	}
 
 
+	@Override
+	public String toString() {
+		return "ResponseBodyEmitter@" + ObjectUtils.getIdentityHexString(this);
+	}
+
+
 	/**
 	 * Handle sent objects and complete request processing.
 	 */
 	interface Handler {
 
-		void send(Object data, MediaType mediaType) throws IOException;
+		void send(Object data, @Nullable MediaType mediaType) throws IOException;
 
 		void complete();
 
@@ -251,7 +258,7 @@ public class ResponseBodyEmitter {
 
 		private final MediaType mediaType;
 
-		public DataWithMediaType(Object data, MediaType mediaType) {
+		public DataWithMediaType(Object data, @Nullable MediaType mediaType) {
 			this.data = data;
 			this.mediaType = mediaType;
 		}
@@ -260,6 +267,7 @@ public class ResponseBodyEmitter {
 			return this.data;
 		}
 
+		@Nullable
 		public MediaType getMediaType() {
 			return this.mediaType;
 		}

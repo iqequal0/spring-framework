@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@ package org.springframework.util;
 import java.text.NumberFormat;
 import java.util.LinkedList;
 import java.util.List;
+
+import org.springframework.lang.Nullable;
 
 /**
  * Simple stop watch, allowing for timing of a number of tasks,
@@ -49,7 +51,7 @@ public class StopWatch {
 
 	private boolean keepTaskList = true;
 
-	private final List<TaskInfo> taskList = new LinkedList<TaskInfo>();
+	private final List<TaskInfo> taskList = new LinkedList<>();
 
 	/** Start time of the current task */
 	private long startTimeMillis;
@@ -134,7 +136,7 @@ public class StopWatch {
 	/**
 	 * Stop the current task. The results are undefined if timing
 	 * methods are called without invoking at least one pair
-	 * {@code #start()} / {@code #stop()} methods.
+	 * {@code start()} / {@code stop()} methods.
 	 * @see #start()
 	 */
 	public void stop() throws IllegalStateException {
@@ -165,6 +167,7 @@ public class StopWatch {
 	 * @since 4.2.2
 	 * @see #isRunning()
 	 */
+	@Nullable
 	public String currentTaskName() {
 		return this.currentTaskName;
 	}

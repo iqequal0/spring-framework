@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import java.util.Collections;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 /**
@@ -73,7 +74,7 @@ public abstract class AbstractCacheResolver implements CacheResolver, Initializi
 			return Collections.emptyList();
 		}
 		else {
-			Collection<Cache> result = new ArrayList<Cache>();
+			Collection<Cache> result = new ArrayList<>();
 			for (String cacheName : cacheNames) {
 				Cache cache = this.cacheManager.getCache(cacheName);
 				if (cache == null) {
@@ -91,8 +92,9 @@ public abstract class AbstractCacheResolver implements CacheResolver, Initializi
 	 * <p>It is acceptable to return {@code null} to indicate that no cache could
 	 * be resolved for this invocation.
 	 * @param context the context of the particular invocation
-	 * @return the cache name(s) to resolve or {@code null} if no cache should be resolved
+	 * @return the cache name(s) to resolve, or {@code null} if no cache should be resolved
 	 */
+	@Nullable
 	protected abstract Collection<String> getCacheNames(CacheOperationInvocationContext<?> context);
 
 }

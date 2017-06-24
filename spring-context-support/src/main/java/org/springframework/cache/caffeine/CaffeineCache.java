@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,13 +22,14 @@ import java.util.function.Function;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 
 import org.springframework.cache.support.AbstractValueAdaptingCache;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 /**
  * Spring {@link org.springframework.cache.Cache} adapter implementation
  * on top of a Caffeine {@link com.github.benmanes.caffeine.cache.Cache} instance.
  *
- * <p>Requires Caffeine 2.0 or higher.
+ * <p>Requires Caffeine 2.1 or higher.
  *
  * @author Ben Manes
  * @author Juergen Hoeller
@@ -62,6 +63,7 @@ public class CaffeineCache extends AbstractValueAdaptingCache {
 	 */
 	public CaffeineCache(String name, com.github.benmanes.caffeine.cache.Cache<Object, Object> cache,
 			boolean allowNullValues) {
+
 		super(allowNullValues);
 		Assert.notNull(name, "Name must not be null");
 		Assert.notNull(cache, "Cache must not be null");
@@ -91,6 +93,7 @@ public class CaffeineCache extends AbstractValueAdaptingCache {
 
 	@SuppressWarnings("unchecked")
 	@Override
+	@Nullable
 	public <T> T get(Object key, final Callable<T> valueLoader) {
 		return (T) fromStoreValue(this.cache.get(key, new LoadFunction(valueLoader)));
 	}
@@ -101,12 +104,13 @@ public class CaffeineCache extends AbstractValueAdaptingCache {
 	}
 
 	@Override
-	public void put(Object key, Object value) {
+	public void put(Object key, @Nullable Object value) {
 		this.cache.put(key, toStoreValue(value));
 	}
 
 	@Override
-	public ValueWrapper putIfAbsent(Object key, final Object value) {
+	@Nullable
+	public ValueWrapper putIfAbsent(Object key, @Nullable final Object value) {
 		PutIfAbsentFunction callable = new PutIfAbsentFunction(value);
 		Object result = this.cache.get(key, callable);
 		return (callable.called ? null : toValueWrapper(result));
@@ -129,7 +133,7 @@ public class CaffeineCache extends AbstractValueAdaptingCache {
 
 		private boolean called;
 
-		public PutIfAbsentFunction(Object value) {
+		public PutIfAbsentFunction(@Nullable Object value) {
 			this.value = value;
 		}
 
@@ -139,6 +143,7 @@ public class CaffeineCache extends AbstractValueAdaptingCache {
 			return toStoreValue(this.value);
 		}
 	}
+
 
 	private class LoadFunction implements Function<Object, Object> {
 

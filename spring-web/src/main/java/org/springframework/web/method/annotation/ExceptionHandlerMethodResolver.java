@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.core.ExceptionDepthComparator;
 import org.springframework.core.MethodIntrospector;
 import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ReflectionUtils.MethodFilter;
@@ -38,6 +39,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
  * to the exception types supported by a given {@link Method}.
  *
  * @author Rossen Stoyanchev
+ * @author Juergen Hoeller
  * @since 3.1
  */
 public class ExceptionHandlerMethodResolver {
@@ -45,12 +47,8 @@ public class ExceptionHandlerMethodResolver {
 	/**
 	 * A filter for selecting {@code @ExceptionHandler} methods.
 	 */
-	public static final MethodFilter EXCEPTION_HANDLER_METHODS = new MethodFilter() {
-		@Override
-		public boolean matches(Method method) {
-			return (AnnotationUtils.findAnnotation(method, ExceptionHandler.class) != null);
-		}
-	};
+	public static final MethodFilter EXCEPTION_HANDLER_METHODS = method ->
+			(AnnotationUtils.findAnnotation(method, ExceptionHandler.class) != null);
 
 	/**
 	 * Arbitrary {@link Method} reference, indicating no method found in the cache.
@@ -59,10 +57,10 @@ public class ExceptionHandlerMethodResolver {
 
 
 	private final Map<Class<? extends Throwable>, Method> mappedMethods =
-			new ConcurrentHashMap<Class<? extends Throwable>, Method>(16);
+			new ConcurrentHashMap<>(16);
 
 	private final Map<Class<? extends Throwable>, Method> exceptionLookupCache =
-			new ConcurrentHashMap<Class<? extends Throwable>, Method>(16);
+			new ConcurrentHashMap<>(16);
 
 
 	/**
@@ -84,7 +82,7 @@ public class ExceptionHandlerMethodResolver {
 	 */
 	@SuppressWarnings("unchecked")
 	private List<Class<? extends Throwable>> detectExceptionMappings(Method method) {
-		List<Class<? extends Throwable>> result = new ArrayList<Class<? extends Throwable>>();
+		List<Class<? extends Throwable>> result = new ArrayList<>();
 		detectAnnotationExceptionMappings(method, result);
 		if (result.isEmpty()) {
 			for (Class<?> paramType : method.getParameterTypes()) {
@@ -98,8 +96,9 @@ public class ExceptionHandlerMethodResolver {
 	}
 
 	protected void detectAnnotationExceptionMappings(Method method, List<Class<? extends Throwable>> result) {
-		ExceptionHandler annot = AnnotationUtils.findAnnotation(method, ExceptionHandler.class);
-		result.addAll(Arrays.asList(annot.value()));
+		ExceptionHandler ann = AnnotationUtils.findAnnotation(method, ExceptionHandler.class);
+		Assert.state(ann != null, "No ExceptionHandler annotation");
+		result.addAll(Arrays.asList(ann.value()));
 	}
 
 	private void addExceptionMapping(Class<? extends Throwable> exceptionType, Method method) {
@@ -123,8 +122,28 @@ public class ExceptionHandlerMethodResolver {
 	 * @param exception the exception
 	 * @return a Method to handle the exception, or {@code null} if none found
 	 */
+	@Nullable
 	public Method resolveMethod(Exception exception) {
-		return resolveMethodByExceptionType(exception.getClass());
+		return resolveMethodByThrowable(exception);
+	}
+
+	/**
+	 * Find a {@link Method} to handle the given Throwable.
+	 * Use {@link ExceptionDepthComparator} if more than one match is found.
+	 * @param exception the exception
+	 * @return a Method to handle the exception, or {@code null} if none found
+	 * @since 5.0
+	 */
+	@Nullable
+	public Method resolveMethodByThrowable(Throwable exception) {
+		Method method = resolveMethodByExceptionType(exception.getClass());
+		if (method == null) {
+			Throwable cause = exception.getCause();
+			if (cause != null) {
+				method = resolveMethodByExceptionType(cause.getClass());
+			}
+		}
+		return method;
 	}
 
 	/**
@@ -133,7 +152,8 @@ public class ExceptionHandlerMethodResolver {
 	 * @param exceptionType the exception type
 	 * @return a Method to handle the exception, or {@code null} if none found
 	 */
-	public Method resolveMethodByExceptionType(Class<? extends Exception> exceptionType) {
+	@Nullable
+	public Method resolveMethodByExceptionType(Class<? extends Throwable> exceptionType) {
 		Method method = this.exceptionLookupCache.get(exceptionType);
 		if (method == null) {
 			method = getMappedMethod(exceptionType);
@@ -145,8 +165,9 @@ public class ExceptionHandlerMethodResolver {
 	/**
 	 * Return the {@link Method} mapped to the given exception type, or {@code null} if none.
 	 */
-	private Method getMappedMethod(Class<? extends Exception> exceptionType) {
-		List<Class<? extends Throwable>> matches = new ArrayList<Class<? extends Throwable>>();
+	@Nullable
+	private Method getMappedMethod(Class<? extends Throwable> exceptionType) {
+		List<Class<? extends Throwable>> matches = new ArrayList<>();
 		for (Class<? extends Throwable> mappedException : this.mappedMethods.keySet()) {
 			if (mappedException.isAssignableFrom(exceptionType)) {
 				matches.add(mappedException);

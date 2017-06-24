@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@ import java.beans.PropertyDescriptor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
@@ -37,6 +36,7 @@ import java.util.TreeSet;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import org.springframework.lang.Nullable;
 import org.springframework.util.ObjectUtils;
 
 /**
@@ -80,7 +80,7 @@ class ExtendedBeanInfo implements BeanInfo {
 	private final BeanInfo delegate;
 
 	private final Set<PropertyDescriptor> propertyDescriptors =
-			new TreeSet<PropertyDescriptor>(new PropertyDescriptorComparator());
+			new TreeSet<>(new PropertyDescriptorComparator());
 
 
 	/**
@@ -128,7 +128,7 @@ class ExtendedBeanInfo implements BeanInfo {
 
 
 	private List<Method> findCandidateWriteMethods(MethodDescriptor[] methodDescriptors) {
-		List<Method> matches = new ArrayList<Method>();
+		List<Method> matches = new ArrayList<>();
 		for (MethodDescriptor methodDescriptor : methodDescriptors) {
 			Method method = methodDescriptor.getMethod();
 			if (isCandidateWriteMethod(method)) {
@@ -138,12 +138,7 @@ class ExtendedBeanInfo implements BeanInfo {
 		// Sort non-void returning write methods to guard against the ill effects of
 		// non-deterministic sorting of methods returned from Class#getDeclaredMethods
 		// under JDK 7. See http://bugs.sun.com/view_bug.do?bug_id=7023180
-		Collections.sort(matches, new Comparator<Method>() {
-			@Override
-			public int compare(Method m1, Method m2) {
-				return m2.toString().compareTo(m1.toString());
-			}
-		});
+		matches.sort((m1, m2) -> m2.toString().compareTo(m1.toString()));
 		return matches;
 	}
 
@@ -157,7 +152,7 @@ class ExtendedBeanInfo implements BeanInfo {
 	}
 
 	private void handleCandidateWriteMethod(Method method) throws IntrospectionException {
-		int nParams = method.getParameterTypes().length;
+		int nParams = method.getParameterCount();
 		String propertyName = propertyNameFor(method);
 		Class<?> propertyType = method.getParameterTypes()[nParams - 1];
 		PropertyDescriptor existingPd = findExistingPropertyDescriptor(propertyName, propertyType);
@@ -188,6 +183,7 @@ class ExtendedBeanInfo implements BeanInfo {
 		}
 	}
 
+	@Nullable
 	private PropertyDescriptor findExistingPropertyDescriptor(String propertyName, Class<?> propertyType) {
 		for (PropertyDescriptor pd : this.propertyDescriptors) {
 			final Class<?> candidateType;
@@ -278,7 +274,7 @@ class ExtendedBeanInfo implements BeanInfo {
 			PropertyDescriptorUtils.copyNonMethodProperties(original, this);
 		}
 
-		public SimplePropertyDescriptor(String propertyName, Method readMethod, Method writeMethod) throws IntrospectionException {
+		public SimplePropertyDescriptor(String propertyName, @Nullable Method readMethod, Method writeMethod) throws IntrospectionException {
 			super(propertyName, null, null);
 			this.readMethod = readMethod;
 			this.writeMethod = writeMethod;
@@ -369,8 +365,8 @@ class ExtendedBeanInfo implements BeanInfo {
 			PropertyDescriptorUtils.copyNonMethodProperties(original, this);
 		}
 
-		public SimpleIndexedPropertyDescriptor(String propertyName, Method readMethod, Method writeMethod,
-				Method indexedReadMethod, Method indexedWriteMethod) throws IntrospectionException {
+		public SimpleIndexedPropertyDescriptor(String propertyName, @Nullable Method readMethod, @Nullable Method writeMethod,
+				@Nullable Method indexedReadMethod, Method indexedWriteMethod) throws IntrospectionException {
 
 			super(propertyName, null, null, null, null);
 			this.readMethod = readMethod;

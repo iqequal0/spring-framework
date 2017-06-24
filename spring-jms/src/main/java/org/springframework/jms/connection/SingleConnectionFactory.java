@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import java.util.Set;
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
 import javax.jms.ExceptionListener;
+import javax.jms.JMSContext;
 import javax.jms.JMSException;
 import javax.jms.QueueConnection;
 import javax.jms.QueueConnectionFactory;
@@ -39,6 +40,7 @@ import org.apache.commons.logging.LogFactory;
 
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 /**
@@ -143,6 +145,7 @@ public class SingleConnectionFactory implements ConnectionFactory, QueueConnecti
 	 * Return the target ConnectionFactory which will be used to lazily
 	 * create a single Connection, if any.
 	 */
+	@org.springframework.lang.Nullable
 	public ConnectionFactory getTargetConnectionFactory() {
 		return this.targetConnectionFactory;
 	}
@@ -164,6 +167,7 @@ public class SingleConnectionFactory implements ConnectionFactory, QueueConnecti
 	 * Return a JMS client ID for the single Connection created and exposed
 	 * by this ConnectionFactory, if any.
 	 */
+	@org.springframework.lang.Nullable
 	protected String getClientId() {
 		return this.clientId;
 	}
@@ -181,6 +185,7 @@ public class SingleConnectionFactory implements ConnectionFactory, QueueConnecti
 	 * Return the JMS ExceptionListener implementation that should be registered
 	 * with the single Connection created by this factory, if any.
 	 */
+	@Nullable
 	protected ExceptionListener getExceptionListener() {
 		return this.exceptionListener;
 	}
@@ -268,6 +273,32 @@ public class SingleConnectionFactory implements ConnectionFactory, QueueConnecti
 	public TopicConnection createTopicConnection(String username, String password) throws JMSException {
 		throw new javax.jms.IllegalStateException(
 				"SingleConnectionFactory does not support custom username and password");
+	}
+
+	@Override
+	public JMSContext createContext() {
+		return obtainTargetConnectionFactory().createContext();
+	}
+
+	@Override
+	public JMSContext createContext(String userName, String password) {
+		return obtainTargetConnectionFactory().createContext(userName, password);
+	}
+
+	@Override
+	public JMSContext createContext(String userName, String password, int sessionMode) {
+		return obtainTargetConnectionFactory().createContext(userName, password, sessionMode);
+	}
+
+	@Override
+	public JMSContext createContext(int sessionMode) {
+		return obtainTargetConnectionFactory().createContext(sessionMode);
+	}
+
+	private ConnectionFactory obtainTargetConnectionFactory() {
+		ConnectionFactory target = getTargetConnectionFactory();
+		Assert.state(target != null, "'targetConnectionFactory' is required");
+		return target;
 	}
 
 
@@ -362,7 +393,7 @@ public class SingleConnectionFactory implements ConnectionFactory, QueueConnecti
 			return ((TopicConnectionFactory) cf).createTopicConnection();
 		}
 		else {
-			return getTargetConnectionFactory().createConnection();
+			return obtainTargetConnectionFactory().createConnection();
 		}
 	}
 
@@ -409,6 +440,7 @@ public class SingleConnectionFactory implements ConnectionFactory, QueueConnecti
 	 * creation of a raw standard Session
 	 * @throws JMSException if thrown by the JMS API
 	 */
+	@Nullable
 	protected Session getSession(Connection con, Integer mode) throws JMSException {
 		return null;
 	}
@@ -473,7 +505,7 @@ public class SingleConnectionFactory implements ConnectionFactory, QueueConnecti
 	 * @return the wrapped Connection
 	 */
 	protected Connection getSharedConnectionProxy(Connection target) {
-		List<Class<?>> classes = new ArrayList<Class<?>>(3);
+		List<Class<?>> classes = new ArrayList<>(3);
 		classes.add(Connection.class);
 		if (target instanceof QueueConnection) {
 			classes.add(QueueConnection.class);
@@ -498,8 +530,9 @@ public class SingleConnectionFactory implements ConnectionFactory, QueueConnecti
 		private boolean locallyStarted = false;
 
 		@Override
-		public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-			if (method.getName().equals("equals")) {
+		@Nullable
+		public Object invoke(Object proxy, Method method, @Nullable Object[] args) throws Throwable {
+			if (method.getName().equals("equals") && args != null) {
 				Object other = args[0];
 				if (proxy == other) {
 					return true;
@@ -518,7 +551,7 @@ public class SingleConnectionFactory implements ConnectionFactory, QueueConnecti
 			else if (method.getName().equals("toString")) {
 				return "Shared JMS Connection: " + getConnection();
 			}
-			else if (method.getName().equals("setClientID")) {
+			else if (method.getName().equals("setClientID") && args != null) {
 				// Handle setClientID method: throw exception if not compatible.
 				String currentClientId = getConnection().getClientID();
 				if (currentClientId != null && currentClientId.equals(args[0])) {
@@ -530,7 +563,7 @@ public class SingleConnectionFactory implements ConnectionFactory, QueueConnecti
 							"Set the 'clientId' property on the SingleConnectionFactory instead.");
 				}
 			}
-			else if (method.getName().equals("setExceptionListener")) {
+			else if (method.getName().equals("setExceptionListener") && args != null) {
 				// Handle setExceptionListener method: add to the chain.
 				synchronized (connectionMonitor) {
 					if (aggregatedExceptionListener != null) {
@@ -662,14 +695,14 @@ public class SingleConnectionFactory implements ConnectionFactory, QueueConnecti
 	 */
 	private class AggregatedExceptionListener implements ExceptionListener {
 
-		final Set<ExceptionListener> delegates = new LinkedHashSet<ExceptionListener>(2);
+		final Set<ExceptionListener> delegates = new LinkedHashSet<>(2);
 
 		@Override
 		public void onException(JMSException ex) {
 			synchronized (connectionMonitor) {
 				// Iterate over temporary copy in order to avoid ConcurrentModificationException,
 				// since listener invocations may in turn trigger registration of listeners...
-				for (ExceptionListener listener : new LinkedHashSet<ExceptionListener>(this.delegates)) {
+				for (ExceptionListener listener : new LinkedHashSet<>(this.delegates)) {
 					listener.onException(ex);
 				}
 			}

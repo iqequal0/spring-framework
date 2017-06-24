@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ import org.springframework.expression.TypeComparator;
 import org.springframework.expression.TypeConverter;
 import org.springframework.expression.TypeLocator;
 import org.springframework.expression.TypedValue;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 /**
@@ -68,7 +69,7 @@ public class StandardEvaluationContext implements EvaluationContext {
 
 	private OperatorOverloader operatorOverloader = new StandardOperatorOverloader();
 
-	private final Map<String, Object> variables = new HashMap<String, Object>();
+	private final Map<String, Object> variables = new HashMap<>();
 
 
 	public StandardEvaluationContext() {
@@ -84,7 +85,7 @@ public class StandardEvaluationContext implements EvaluationContext {
 		this.rootObject = new TypedValue(rootObject, typeDescriptor);
 	}
 
-	public void setRootObject(Object rootObject) {
+	public void setRootObject(@Nullable Object rootObject) {
 		this.rootObject = (rootObject != null ? new TypedValue(rootObject) : TypedValue.NULL);
 	}
 
@@ -169,7 +170,7 @@ public class StandardEvaluationContext implements EvaluationContext {
 	@Override
 	public TypeLocator getTypeLocator() {
 		if (this.typeLocator == null) {
-			 this.typeLocator = new StandardTypeLocator();
+			this.typeLocator = new StandardTypeLocator();
 		}
 		return this.typeLocator;
 	}
@@ -208,7 +209,7 @@ public class StandardEvaluationContext implements EvaluationContext {
 	}
 
 	@Override
-	public void setVariable(String name, Object value) {
+	public void setVariable(String name, @Nullable Object value) {
 		this.variables.put(name, value);
 	}
 
@@ -252,7 +253,7 @@ public class StandardEvaluationContext implements EvaluationContext {
 
 	private synchronized void initializePropertyAccessors() {
 		if (this.propertyAccessors == null) {
-			List<PropertyAccessor> defaultAccessors = new ArrayList<PropertyAccessor>();
+			List<PropertyAccessor> defaultAccessors = new ArrayList<>();
 			defaultAccessors.add(new ReflectivePropertyAccessor());
 			this.propertyAccessors = defaultAccessors;
 		}
@@ -266,7 +267,7 @@ public class StandardEvaluationContext implements EvaluationContext {
 
 	private synchronized void initializeMethodResolvers() {
 		if (this.methodResolvers == null) {
-			List<MethodResolver> defaultResolvers = new ArrayList<MethodResolver>();
+			List<MethodResolver> defaultResolvers = new ArrayList<>();
 			this.reflectiveMethodResolver = new ReflectiveMethodResolver();
 			defaultResolvers.add(this.reflectiveMethodResolver);
 			this.methodResolvers = defaultResolvers;
@@ -281,7 +282,7 @@ public class StandardEvaluationContext implements EvaluationContext {
 
 	private synchronized void initializeConstructorResolvers() {
 		if (this.constructorResolvers == null) {
-			List<ConstructorResolver> defaultResolvers = new ArrayList<ConstructorResolver>();
+			List<ConstructorResolver> defaultResolvers = new ArrayList<>();
 			defaultResolvers.add(new ReflectiveConstructorResolver());
 			this.constructorResolvers = defaultResolvers;
 		}

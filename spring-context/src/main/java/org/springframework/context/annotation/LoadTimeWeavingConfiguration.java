@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.springframework.context.weaving.DefaultContextLoadTimeWeaver;
 import org.springframework.core.annotation.AnnotationAttributes;
 import org.springframework.core.type.AnnotationMetadata;
 import org.springframework.instrument.classloading.LoadTimeWeaver;
+import org.springframework.lang.Nullable;
 
 /**
  * {@code @Configuration} class that registers a {@link LoadTimeWeaver} bean.
@@ -64,7 +65,7 @@ public class LoadTimeWeavingConfiguration implements ImportAware, BeanClassLoade
 	}
 
 	@Override
-	public void setBeanClassLoader(ClassLoader beanClassLoader) {
+	public void setBeanClassLoader(@Nullable ClassLoader beanClassLoader) {
 		this.beanClassLoader = beanClassLoader;
 	}
 
@@ -75,12 +76,12 @@ public class LoadTimeWeavingConfiguration implements ImportAware, BeanClassLoade
 		LoadTimeWeaver loadTimeWeaver = null;
 
 		if (this.ltwConfigurer != null) {
-			// the user has provided a custom LTW instance
-			loadTimeWeaver = ltwConfigurer.getLoadTimeWeaver();
+			// The user has provided a custom LoadTimeWeaver instance
+			loadTimeWeaver = this.ltwConfigurer.getLoadTimeWeaver();
 		}
 
 		if (loadTimeWeaver == null) {
-			// no custom LTW provided -> fall back to the default
+			// No custom LoadTimeWeaver provided -> fall back to the default
 			loadTimeWeaver = new DefaultContextLoadTimeWeaver(this.beanClassLoader);
 		}
 

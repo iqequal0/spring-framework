@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.springframework.core.type;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -72,7 +73,7 @@ public class StandardAnnotationMetadata extends StandardClassMetadata implements
 
 	@Override
 	public Set<String> getAnnotationTypes() {
-		Set<String> types = new LinkedHashSet<String>();
+		Set<String> types = new LinkedHashSet<>();
 		for (Annotation ann : this.annotations) {
 			types.add(ann.annotationType().getName());
 		}
@@ -82,7 +83,8 @@ public class StandardAnnotationMetadata extends StandardClassMetadata implements
 	@Override
 	public Set<String> getMetaAnnotationTypes(String annotationName) {
 		return (this.annotations.length > 0 ?
-				AnnotatedElementUtils.getMetaAnnotationTypes(getIntrospectedClass(), annotationName) : null);
+				AnnotatedElementUtils.getMetaAnnotationTypes(getIntrospectedClass(), annotationName) :
+				Collections.emptySet());
 	}
 
 	@Override
@@ -150,7 +152,7 @@ public class StandardAnnotationMetadata extends StandardClassMetadata implements
 	public Set<MethodMetadata> getAnnotatedMethods(String annotationName) {
 		try {
 			Method[] methods = getIntrospectedClass().getDeclaredMethods();
-			Set<MethodMetadata> annotatedMethods = new LinkedHashSet<MethodMetadata>();
+			Set<MethodMetadata> annotatedMethods = new LinkedHashSet<>();
 			for (Method method : methods) {
 				if (!method.isBridge() && method.getAnnotations().length > 0 &&
 						AnnotatedElementUtils.isAnnotated(method, annotationName)) {

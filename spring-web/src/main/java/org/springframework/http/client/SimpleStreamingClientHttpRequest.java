@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,8 +52,9 @@ final class SimpleStreamingClientHttpRequest extends AbstractClientHttpRequest {
 	}
 
 
-	public HttpMethod getMethod() {
-		return HttpMethod.resolve(this.connection.getRequestMethod());
+	@Override
+	public String getMethodValue() {
+		return this.connection.getRequestMethod();
 	}
 
 	@Override
@@ -94,6 +95,8 @@ final class SimpleStreamingClientHttpRequest extends AbstractClientHttpRequest {
 			else {
 				SimpleBufferingClientHttpRequest.addHeaders(this.connection, headers);
 				this.connection.connect();
+				// Immediately trigger the request in a no-output scenario as well
+				this.connection.getResponseCode();
 			}
 		}
 		catch (IOException ex) {

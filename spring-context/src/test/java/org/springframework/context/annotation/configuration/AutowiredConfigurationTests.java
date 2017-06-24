@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 package org.springframework.context.annotation.configuration;
 
 import java.io.IOException;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.List;
 import java.util.Optional;
 import javax.inject.Provider;
@@ -24,6 +26,7 @@ import javax.inject.Provider;
 import org.junit.Test;
 
 import org.springframework.beans.factory.BeanFactory;
+import org.springframework.beans.factory.ObjectFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
@@ -35,6 +38,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.context.support.GenericApplicationContext;
+import org.springframework.core.annotation.AliasFor;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.tests.sample.beans.Colour;
@@ -49,6 +53,7 @@ import static org.junit.Assert.*;
  *
  * @author Chris Beams
  * @author Juergen Hoeller
+ * @author Sam Brannen
  */
 public class AutowiredConfigurationTests {
 
@@ -101,6 +106,18 @@ public class AutowiredConfigurationTests {
 	}
 
 	@Test
+	public void testObjectFactoryConstructorWithTypeVariable() {
+		DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
+		new XmlBeanDefinitionReader(factory).loadBeanDefinitions(
+				new ClassPathResource("annotation-config.xml", ObjectFactoryConstructorConfig.class));
+		GenericApplicationContext ctx = new GenericApplicationContext(factory);
+		ctx.registerBeanDefinition("config1", new RootBeanDefinition(ObjectFactoryConstructorConfig.class));
+		ctx.registerBeanDefinition("config2", new RootBeanDefinition(ColorConfig.class));
+		ctx.refresh();
+		assertSame(ctx.getBean(ObjectFactoryConstructorConfig.class).colour, ctx.getBean(Colour.class));
+	}
+
+	@Test
 	public void testAutowiredAnnotatedConstructorSupported() {
 		DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
 		new XmlBeanDefinitionReader(factory).loadBeanDefinitions(
@@ -116,6 +133,20 @@ public class AutowiredConfigurationTests {
 	public void testValueInjection() {
 		ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext(
 				"ValueInjectionTests.xml", AutowiredConfigurationTests.class);
+		doTestValueInjection(context);
+	}
+
+	@Test
+	public void testValueInjectionWithMetaAnnotation() {
+		AnnotationConfigApplicationContext context =
+				new AnnotationConfigApplicationContext(ValueConfigWithMetaAnnotation.class);
+		doTestValueInjection(context);
+	}
+
+	@Test
+	public void testValueInjectionWithAliasedMetaAnnotation() {
+		AnnotationConfigApplicationContext context =
+				new AnnotationConfigApplicationContext(ValueConfigWithAliasedMetaAnnotation.class);
 		doTestValueInjection(context);
 	}
 
@@ -173,20 +204,23 @@ public class AutowiredConfigurationTests {
 
 		TestBean testBean = context.getBean("testBean", TestBean.class);
 		assertThat(testBean.getName(), equalTo("localhost"));
-		assertThat(testBean.getAge(), equalTo((int) new ClassPathResource("log4j.properties").contentLength()));
+		assertThat(testBean.getAge(), equalTo(contentLength()));
 	}
 
 	@Test
 	public void testCustomPropertiesWithGenericContext() throws IOException {
 		GenericApplicationContext context = new GenericApplicationContext();
-		// context.setResourceLoader(new FileSystemResourceLoader());
 		new XmlBeanDefinitionReader(context).loadBeanDefinitions(
 				new ClassPathResource("AutowiredConfigurationTests-custom.xml", AutowiredConfigurationTests.class));
 		context.refresh();
 
 		TestBean testBean = context.getBean("testBean", TestBean.class);
 		assertThat(testBean.getName(), equalTo("localhost"));
-		assertThat(testBean.getAge(), equalTo((int) new ClassPathResource("log4j.properties").contentLength()));
+		assertThat(testBean.getAge(), equalTo(contentLength()));
+	}
+
+	private int contentLength() throws IOException {
+		return (int) new ClassPathResource("do_not_delete_me.txt").contentLength();
 	}
 
 
@@ -241,6 +275,18 @@ public class AutowiredConfigurationTests {
 
 
 	@Configuration
+	static class ObjectFactoryConstructorConfig {
+
+		Colour colour;
+
+		// @Autowired
+		ObjectFactoryConstructorConfig(ObjectFactory<Colour> colourFactory) {
+			this.colour = colourFactory.getObject();
+		}
+	}
+
+
+	@Configuration
 	static class MultipleConstructorConfig {
 
 		Colour colour;
@@ -275,6 +321,73 @@ public class AutowiredConfigurationTests {
 		private String name2;
 
 		@Value("#{systemProperties[myProp]}")
+		public void setName2(String name) {
+			this.name2 = name;
+		}
+
+		@Bean @Scope("prototype")
+		public TestBean testBean() {
+			return new TestBean(name);
+		}
+
+		@Bean @Scope("prototype")
+		public TestBean testBean2() {
+			return new TestBean(name2);
+		}
+	}
+
+
+	@Value("#{systemProperties[myProp]}")
+	@Retention(RetentionPolicy.RUNTIME)
+	public @interface MyProp {
+	}
+
+
+	@Configuration
+	@Scope("prototype")
+	static class ValueConfigWithMetaAnnotation {
+
+		@MyProp
+		private String name;
+
+		private String name2;
+
+		@MyProp
+		public void setName2(String name) {
+			this.name2 = name;
+		}
+
+		@Bean @Scope("prototype")
+		public TestBean testBean() {
+			return new TestBean(name);
+		}
+
+		@Bean @Scope("prototype")
+		public TestBean testBean2() {
+			return new TestBean(name2);
+		}
+	}
+
+
+	@Value("")
+	@Retention(RetentionPolicy.RUNTIME)
+	public @interface AliasedProp {
+
+		@AliasFor(annotation = Value.class)
+		String value();
+	}
+
+
+	@Configuration
+	@Scope("prototype")
+	static class ValueConfigWithAliasedMetaAnnotation {
+
+		@AliasedProp("#{systemProperties[myProp]}")
+		private String name;
+
+		private String name2;
+
+		@AliasedProp("#{systemProperties[myProp]}")
 		public void setName2(String name) {
 			this.name2 = name;
 		}
@@ -368,7 +481,7 @@ public class AutowiredConfigurationTests {
 			this.hostname = hostname;
 		}
 
-		@Value("log4j.properties")
+		@Value("do_not_delete_me.txt")
 		public void setResource(Resource resource) {
 			this.resource = resource;
 		}

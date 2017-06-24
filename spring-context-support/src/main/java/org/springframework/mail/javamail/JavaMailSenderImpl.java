@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import javax.mail.Session;
 import javax.mail.Transport;
 import javax.mail.internet.MimeMessage;
 
+import org.springframework.lang.Nullable;
 import org.springframework.mail.MailAuthenticationException;
 import org.springframework.mail.MailException;
 import org.springframework.mail.MailParseException;
@@ -165,6 +166,7 @@ public class JavaMailSenderImpl implements JavaMailSender {
 	/**
 	 * Return the mail protocol.
 	 */
+	@Nullable
 	public String getProtocol() {
 		return this.protocol;
 	}
@@ -180,6 +182,7 @@ public class JavaMailSenderImpl implements JavaMailSender {
 	/**
 	 * Return the mail server host.
 	 */
+	@Nullable
 	public String getHost() {
 		return this.host;
 	}
@@ -218,6 +221,7 @@ public class JavaMailSenderImpl implements JavaMailSender {
 	/**
 	 * Return the username for the account at the mail host.
 	 */
+	@Nullable
 	public String getUsername() {
 		return this.username;
 	}
@@ -240,6 +244,7 @@ public class JavaMailSenderImpl implements JavaMailSender {
 	/**
 	 * Return the password for the account at the mail host.
 	 */
+	@Nullable
 	public String getPassword() {
 		return this.password;
 	}
@@ -257,6 +262,7 @@ public class JavaMailSenderImpl implements JavaMailSender {
 	 * Return the default encoding for {@link MimeMessage MimeMessages},
 	 * or {@code null} if none.
 	 */
+	@Nullable
 	public String getDefaultEncoding() {
 		return this.defaultEncoding;
 	}
@@ -282,6 +288,7 @@ public class JavaMailSenderImpl implements JavaMailSender {
 	 * Return the default Java Activation {@link FileTypeMap} for
 	 * {@link MimeMessage MimeMessages}, or {@code null} if none.
 	 */
+	@Nullable
 	public FileTypeMap getDefaultFileTypeMap() {
 		return this.defaultFileTypeMap;
 	}
@@ -298,7 +305,7 @@ public class JavaMailSenderImpl implements JavaMailSender {
 
 	@Override
 	public void send(SimpleMailMessage... simpleMessages) throws MailException {
-		List<MimeMessage> mimeMessages = new ArrayList<MimeMessage>(simpleMessages.length);
+		List<MimeMessage> mimeMessages = new ArrayList<>(simpleMessages.length);
 		for (SimpleMailMessage simpleMessage : simpleMessages) {
 			MimeMailMessage message = new MimeMailMessage(createMimeMessage());
 			simpleMessage.copyTo(message);
@@ -353,7 +360,7 @@ public class JavaMailSenderImpl implements JavaMailSender {
 	@Override
 	public void send(MimeMessagePreparator... mimeMessagePreparators) throws MailException {
 		try {
-			List<MimeMessage> mimeMessages = new ArrayList<MimeMessage>(mimeMessagePreparators.length);
+			List<MimeMessage> mimeMessages = new ArrayList<>(mimeMessagePreparators.length);
 			for (MimeMessagePreparator preparator : mimeMessagePreparators) {
 				MimeMessage mimeMessage = createMimeMessage();
 				preparator.prepare(mimeMessage);
@@ -399,8 +406,8 @@ public class JavaMailSenderImpl implements JavaMailSender {
 	 * @throws org.springframework.mail.MailSendException
 	 * in case of failure when sending a message
 	 */
-	protected void doSend(MimeMessage[] mimeMessages, Object[] originalMessages) throws MailException {
-		Map<Object, Exception> failedMessages = new LinkedHashMap<Object, Exception>();
+	protected void doSend(MimeMessage[] mimeMessages, @Nullable Object[] originalMessages) throws MailException {
+		Map<Object, Exception> failedMessages = new LinkedHashMap<>();
 		Transport transport = null;
 
 		try {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import org.springframework.lang.Nullable;
 import org.springframework.util.StringUtils;
 
 /**
@@ -43,7 +44,7 @@ public class MutablePropertySources implements PropertySources {
 
 	private final Log logger;
 
-	private final List<PropertySource<?>> propertySourceList = new CopyOnWriteArrayList<PropertySource<?>>();
+	private final List<PropertySource<?>> propertySourceList = new CopyOnWriteArrayList<>();
 
 
 	/**
@@ -154,6 +155,7 @@ public class MutablePropertySources implements PropertySources {
 	 * Remove and return the property source with the given name, {@code null} if not found.
 	 * @param name the name of the property source to find and remove
 	 */
+	@Nullable
 	public PropertySource<?> remove(String name) {
 		if (logger.isDebugEnabled()) {
 			logger.debug(String.format("Removing [%s] PropertySource", name));
